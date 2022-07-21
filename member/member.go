@@ -1,10 +1,10 @@
 package member
 
 import (
-	"github.com/ezequielpilcsuk/goMunication/group"
-	"github.com/ezequielpilcsuk/goMunication/message"
-	"github.com/ezequielpilcsuk/goMunication/utils"
 	"github.com/google/uuid"
+	"goMunication/group"
+	"goMunication/message"
+	"goMunication/utils"
 	"net"
 	"time"
 )

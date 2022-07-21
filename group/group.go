@@ -1,7 +1,7 @@
 package group
 
 import (
-	"github.com/ezequielpilcsuk/goMunication/member"
+	"goMunication/member"
 	"net"
 )
 

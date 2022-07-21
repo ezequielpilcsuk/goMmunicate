@@ -1,8 +1,8 @@
 package message
 
 import (
-	"github.com/ezequielpilcsuk/goMunication/member"
 	"github.com/google/uuid"
+	"goMunication/member"
 )
 
 type Message struct {
