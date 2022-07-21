@@ -1,9 +1,10 @@
 package member
 
 import (
-	"goMunication/group"
-	"goMunication/message"
-	"goMunication/utils"
+	"github.com/ezequielpilcsuk/goMunication/group"
+	"github.com/ezequielpilcsuk/goMunication/message"
+	"github.com/ezequielpilcsuk/goMunication/utils"
+	"github.com/google/uuid"
 	"net"
 	"time"
 )
@@ -20,7 +21,8 @@ type Member struct {
 	Role  string       `json:"role"`
 }
 
-func (me *Member) Receive() (message []byte) {
+// Receive a message from the group
+func (me *Member) Receive() (message message.Message) {
 	tcpAddr, err := net.ResolveTCPAddr(ConnType, string(me.Port))
 	utils.CheckErr(err)
 	listener, err := net.ListenTCP(ConnType, tcpAddr)
@@ -28,14 +30,15 @@ func (me *Member) Receive() (message []byte) {
 	conn, err := listener.Accept()
 	conn.SetDeadline(time.Now().Add(time.Minute))
 
-	_, err = conn.Read(message)
+	_, err = conn.Read(message.Data)
 	utils.CheckErr(err)
 	defer utils.CheckErr(conn.Close())
 
 	return message
 }
 
-func Send(member Member, message []byte) {
+// Send a message to a specific member of the group
+func Send(member Member, message message.Message) {
 	tcpAddr, err := net.ResolveTCPAddr(ConnType, string(member.Port))
 	utils.CheckErr(err)
 
@@ -45,12 +48,21 @@ func Send(member Member, message []byte) {
 
 	conn.SetDeadline(time.Now().Add(time.Minute))
 
-	_, err = conn.Write(message)
+	_, err = conn.Write(message.Data)
 	utils.CheckErr(err)
 }
 
-func (me *Member) WrapMessage(data []byte) (message message.Message) {
+// bMulticast sends a message to the whole group
+func (member *Member) bMulticast(data []byte) {
+	for i := 0; i < member.Group.NMembers; i++ {
+		message := member.WrapMessage(data)
+		Send(member.Group.Members[i], message)
+	}
+}
 
-	uuid
+func (me Member) WrapMessage(data []byte) (message message.Message) {
+	message.Sender = me
+	message.Data = data
+	message.ID = uuid.New()
 	return message
 }

@@ -1,11 +1,12 @@
 package message
 
 import (
-	"goMunication/member"
+	"github.com/ezequielpilcsuk/goMunication/member"
+	"github.com/google/uuid"
 )
 
 type Message struct {
 	Sender member.Member
 	Data   []byte
-	ID     int
+	ID     uuid.UUID
 }

@@ -1,8 +1,8 @@
 package goMunication
 
 import (
-	"goMunication/group"
-	"goMunication/member"
+	"github.com/ezequielpilcsuk/goMunication/group"
+	"github.com/ezequielpilcsuk/goMunication/member"
 )
 
 var myGroup group.Group

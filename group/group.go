@@ -1,7 +1,7 @@
 package group
 
 import (
-	"goMunication/member"
+	"github.com/ezequielpilcsuk/goMunication/member"
 	"net"
 )
 
@@ -34,6 +34,7 @@ func (group *Group) Start(addr net.Addr, basePort int) {
 	thisGroup.Address = addr
 }
 
+// Join adds a member to the group
 func (group *Group) Join(member *member.Member) {
 	member.Id = group.NMembers
 	member.Port = group.BasePort + member.Id
@@ -43,14 +44,7 @@ func (group *Group) Join(member *member.Member) {
 	group.Members = append(group.Members, *member)
 }
 
-// bMulticast sends a message to the whole group
-func (group *Group) bMulticast(message []byte) {
-	for i := 0; i < group.NMembers; i++ {
-		member.Send(group.Members[i], message)
-	}
-
-}
-
+// BDeliver is a basic
 func (group *Group) BDeliver() {
 
 }
@@ -69,5 +63,4 @@ On B-deliver(m) at process q with g = group(m)
 		if q not p
 			B-multicast(g,m)
 		R-deliver(m);
-
 */
