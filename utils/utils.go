@@ -3,6 +3,9 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
+	"goMunication/member"
+	"goMunication/message"
 	"os"
 )
 
@@ -18,6 +21,13 @@ func CheckErr(err error) {
 	}
 }
 
-func ParseAddr() {
+func WrapMessage(sender member.Member, data []byte) (message message.Message) {
+	message.Sender = sender
+	message.Data = data
+	message.ID = uuid.New()
+	return message
+}
+
+func getFinalAddr() {
 
 }
