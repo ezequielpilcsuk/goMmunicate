@@ -1,11 +1,11 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"goMunication/member"
-	"goMunication/message"
+	gm "goMunication/src"
 	"os"
 )
 
@@ -21,13 +21,18 @@ func CheckErr(err error) {
 	}
 }
 
-func WrapMessage(sender member.Member, data []byte) (message message.Message) {
-	message.Sender = sender
-	message.Data = data
-	message.ID = uuid.New()
-	return message
+func WrapMessage(data []byte) gm.Message {
+	tmpBuf := bytes.NewBuffer(data)
+	tmpMsg := new(gm.Message)
+	decoder := gob.NewDecoder(tmpBuf)
+	CheckErr(decoder.Decode(tmpMsg))
+
+	return *tmpMsg
 }
 
-func getFinalAddr() {
-
+func UnwrapMessage(msg gm.Message) []byte {
+	tmpBuf := new(bytes.Buffer)
+	encoder := gob.NewEncoder(tmpBuf)
+	CheckErr(encoder.Encode(msg))
+	return tmpBuf.Bytes()
 }

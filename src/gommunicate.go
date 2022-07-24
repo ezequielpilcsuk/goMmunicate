@@ -41,6 +41,8 @@ type Group struct {
 var ThisMember Member
 var OurGroup Group
 
+// TODO: review structure, maybe Start is not needed
+
 // Start should initialize ThisMember and OurGroup loading data from dist/config.json
 func Start() {
 	var err error
@@ -85,9 +87,7 @@ func Send(memberID int, data []byte) {
 		ID:       uuid.New(),
 	}
 
-	//tmp := make([]byte, 5000)
-
-	_, err = conn.Write([]byte(message))
+	_, err = conn.Write(utils.UnwrapMessage(msg))
 	utils.CheckErr(err)
 }
 
@@ -98,24 +98,20 @@ func (m *Member) Receive() (message Message) {
 	listener, err := net.ListenTCP(ConnType, tcpAddr)
 	utils.CheckErr(err)
 	conn, err := listener.Accept()
-
+	defer utils.CheckErr(conn.Close())
 	utils.CheckErr(conn.SetDeadline(time.Now().Add(time.Minute)))
 
 	tmp := make([]byte, 5000)
 	_, err = conn.Read(tmp)
-
-	tmpstruct := new(Message)
-
 	utils.CheckErr(err)
-	defer utils.CheckErr(conn.Close())
 
-	return message
+	return utils.WrapMessage(tmp)
 }
 
 // bMulticast sends a message to the whole group
 func (m Member) bMulticast(message Message) {
 	for i := 0; i < OurGroup.NMembers; i++ {
-		Send(OurGroup.MembersIDs[i], message)
+		Send(OurGroup.MembersIDs[i], utils.UnwrapMessage(message))
 	}
 }
 
