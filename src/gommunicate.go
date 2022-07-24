@@ -1,10 +1,8 @@
-package member
+package src
 
 import (
 	"encoding/json"
 	"github.com/google/uuid"
-	"goMunication/group"
-	"goMunication/message"
 	"goMunication/utils"
 	"io/ioutil"
 	"log"
@@ -16,15 +14,32 @@ const (
 	ConnType = "tcp4"
 )
 
+type Message struct {
+	SenderID int
+	Data     []byte
+	ID       uuid.UUID
+}
+
 // Member is part of the group
 type Member struct {
-	Id       int `json:"id"`
-	Port     int `json:"port"`
-	NMembers int `json:"n_members"`
+	Id        int `json:"id"`
+	Port      int `json:"port"`
+	NMembers  int `json:"n_members"`
+	LClocks   []int
+	MReceived map[uuid.UUID]bool
+}
+
+// Group represents the group being communicated to
+type Group struct {
+	NMembers    int `json:"n_members"`
+	MembersIDs  []int
+	Address     string `json:"adress"`
+	BasePort    int    `json:"base_port"`
+	SequencerID int    `json:"sequencer_id"`
 }
 
 var ThisMember Member
-var OurGroup group.Group
+var OurGroup Group
 
 // Start should initialize ThisMember and OurGroup loading data from dist/config.json
 func Start() {
@@ -41,7 +56,7 @@ func Start() {
 		log.Println("init fail: wrong json format: ", err)
 	}
 
-	//TODO: set this dinamically
+	//TODO: set this dynamically
 
 	OurGroup.NMembers = ThisMember.NMembers
 	OurGroup.MembersIDs = []int{0, 1, 2}
@@ -53,7 +68,7 @@ func Start() {
 }
 
 // Send a message to a specific member of the group
-func Send(memberID int, message message.Message) {
+func Send(memberID int, data []byte) {
 	finalAddr := string(OurGroup.BasePort + memberID)
 	tcpAddr, err := net.ResolveTCPAddr(ConnType, finalAddr)
 	utils.CheckErr(err)
@@ -62,22 +77,35 @@ func Send(memberID int, message message.Message) {
 	utils.CheckErr(err)
 	defer utils.CheckErr(conn.Close())
 
-	conn.SetDeadline(time.Now().Add(time.Minute))
+	utils.CheckErr(conn.SetDeadline(time.Now().Add(time.Minute)))
 
-	_, err = conn.Write(message.Data)
+	var msg = Message{
+		SenderID: ThisMember.Id,
+		Data:     data,
+		ID:       uuid.New(),
+	}
+
+	//tmp := make([]byte, 5000)
+
+	_, err = conn.Write([]byte(message))
 	utils.CheckErr(err)
 }
 
 // Receive a message from the group
-func (m *Member) Receive() (message message.Message) {
+func (m *Member) Receive() (message Message) {
 	tcpAddr, err := net.ResolveTCPAddr(ConnType, string(m.Port))
 	utils.CheckErr(err)
 	listener, err := net.ListenTCP(ConnType, tcpAddr)
 	utils.CheckErr(err)
 	conn, err := listener.Accept()
-	conn.SetDeadline(time.Now().Add(time.Minute))
 
-	_, err = conn.Read(message.Data)
+	utils.CheckErr(conn.SetDeadline(time.Now().Add(time.Minute)))
+
+	tmp := make([]byte, 5000)
+	_, err = conn.Read(tmp)
+
+	tmpstruct := new(Message)
+
 	utils.CheckErr(err)
 	defer utils.CheckErr(conn.Close())
 
@@ -85,23 +113,17 @@ func (m *Member) Receive() (message message.Message) {
 }
 
 // bMulticast sends a message to the whole group
-func (m Member) bMulticast(message message.Message) {
+func (m Member) bMulticast(message Message) {
 	for i := 0; i < OurGroup.NMembers; i++ {
 		Send(OurGroup.MembersIDs[i], message)
 	}
 }
 
-// BDeliver is a basic
-func (m Member) BDeliver() (message message.Message) {
-	return m.Receive()
-}
-
-//
-func bDeliver(m message.Message) {
-	received := map[uuid.UUID]bool{}
-	if !received[m.ID] {
-		received[m.ID] = true
-		if m.Sender.Id != ThisMember.Id {
+// BDeliver receives an unreceived message from the group
+func BDeliver(m Message) {
+	if !ThisMember.MReceived[m.ID] {
+		ThisMember.MReceived[m.ID] = true
+		if m.SenderID != ThisMember.Id {
 			ThisMember.bMulticast(m)
 		}
 	}
