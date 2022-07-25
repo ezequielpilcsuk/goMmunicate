@@ -21,6 +21,7 @@ func CheckErr(err error) {
 	}
 }
 
+// WrapMessage turns a received array of bytes into a message
 func WrapMessage(data []byte) gm.Message {
 	tmpBuf := bytes.NewBuffer(data)
 	tmpMsg := new(gm.Message)
@@ -30,6 +31,7 @@ func WrapMessage(data []byte) gm.Message {
 	return *tmpMsg
 }
 
+// UnwrapMessage turns a message into an array of bytes to be sent
 func UnwrapMessage(msg gm.Message) []byte {
 	tmpBuf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(tmpBuf)
@@ -38,6 +40,7 @@ func UnwrapMessage(msg gm.Message) []byte {
 	return tmpBuf.Bytes()
 }
 
+// UpdateLClocks updates the array of logical clocks
 func UpdateLClocks(clocks1 []int, clocks2 []int) (updatedClocks []int) {
 	for i := 0; i < len(clocks1); i++ {
 		if clocks1[i] > clocks2[i] {

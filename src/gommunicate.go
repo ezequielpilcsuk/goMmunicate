@@ -47,7 +47,7 @@ type Group struct {
 var ThisMember Member
 var OurGroup Group
 
-// TODO: review structure, maybe Start is not needed
+// TODO: review structure, maybe Start is not needed and should be in another program
 
 // Start should initialize ThisMember and OurGroup loading data from dist/config.json
 func Start() {
@@ -120,6 +120,7 @@ func Receive() (messages []Message) {
 
 	message := utils.WrapMessage(tmp)
 
+	// If this member is the sequencer and not the sender
 	if ThisMember.Id == OurGroup.SequencerID && message.SenderID != ThisMember.Id {
 		SequencerReceive(message)
 		return
@@ -127,7 +128,7 @@ func Receive() (messages []Message) {
 
 	ThisMember.Pending = append(ThisMember.Pending, message)
 
-	//TODO: fix it later
+	//TODO: fix for later
 
 	// While there are pending messages to be received
 	for i := 0; i < len(ThisMember.Pending); i++ {
@@ -146,12 +147,11 @@ func Receive() (messages []Message) {
 	return messages
 }
 
-//
+// SequencerReceive assigns a sequence number to a message and broadcasts it to the group
 func SequencerReceive(message Message) {
 	message.SeqNum = ThisMember.SeqNum
 	BMulticast(message)
 	ThisMember.SeqNum++
-
 }
 
 // Broadcast Sends a message to the sequencer to be broadcasted
