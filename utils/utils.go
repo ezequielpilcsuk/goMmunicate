@@ -34,5 +34,17 @@ func UnwrapMessage(msg gm.Message) []byte {
 	tmpBuf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(tmpBuf)
 	CheckErr(encoder.Encode(msg))
+
 	return tmpBuf.Bytes()
+}
+
+func UpdateLClocks(clocks1 []int, clocks2 []int) (updatedClocks []int) {
+	for i := 0; i < len(clocks1); i++ {
+		if clocks1[i] > clocks2[i] {
+			updatedClocks[i] = clocks1[i]
+		} else {
+			updatedClocks[i] = clocks2[i]
+		}
+	}
+	return updatedClocks
 }

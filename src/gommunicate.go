@@ -17,23 +17,29 @@ const (
 type Message struct {
 	SenderID int
 	Data     []byte
+	SeqNum   int
+	LClocks  []int
 	ID       uuid.UUID
 }
 
 // Member is part of the group
 type Member struct {
-	Id        int `json:"id"`
-	Port      int `json:"port"`
-	NMembers  int `json:"n_members"`
-	LClocks   []int
-	MReceived map[uuid.UUID]bool
+	Id   int `json:"id"`
+	Port int `json:"port"`
+
+	SeqNum      int       // SeqNum is message sequence counter, sequencer exclusive
+	NextDeliver int       // NextDeliver is the sequence number for the next message to be received
+	Pending     []Message // Pending is a list of messages to be received
+
+	LClocks   []int              //LClocks is a vector of logical clocks for Casual Order
+	MReceived map[uuid.UUID]bool // MReceived is a vector of received messages
 }
 
 // Group represents the group being communicated to
 type Group struct {
 	NMembers    int `json:"n_members"`
 	MembersIDs  []int
-	Address     string `json:"adress"`
+	Address     string `json:"address"`
 	BasePort    int    `json:"base_port"`
 	SequencerID int    `json:"sequencer_id"`
 }
@@ -59,14 +65,19 @@ func Start() {
 	}
 
 	//TODO: set this dynamically
-
-	OurGroup.NMembers = ThisMember.NMembers
+	OurGroup.NMembers = 3
 	OurGroup.MembersIDs = []int{0, 1, 2}
 	OurGroup.Address = "localhost"
 	OurGroup.BasePort = 8080
 
 	//TODO: fix when adding total order
-	OurGroup.SequencerID = -1
+	OurGroup.SequencerID = 0
+	if OurGroup.SequencerID == ThisMember.Id {
+		ThisMember.SeqNum = 1
+	}
+
+	ThisMember.NextDeliver = 1
+
 }
 
 // Send a message to a specific member of the group
@@ -89,11 +100,13 @@ func Send(memberID int, data []byte) {
 
 	_, err = conn.Write(utils.UnwrapMessage(msg))
 	utils.CheckErr(err)
+
+	ThisMember.LClocks[ThisMember.Id]++
 }
 
 // Receive a message from the group
-func (m *Member) Receive() (message Message) {
-	tcpAddr, err := net.ResolveTCPAddr(ConnType, string(m.Port))
+func Receive() (messages []Message) {
+	tcpAddr, err := net.ResolveTCPAddr(ConnType, string(ThisMember.Port))
 	utils.CheckErr(err)
 	listener, err := net.ListenTCP(ConnType, tcpAddr)
 	utils.CheckErr(err)
@@ -105,13 +118,65 @@ func (m *Member) Receive() (message Message) {
 	_, err = conn.Read(tmp)
 	utils.CheckErr(err)
 
-	return utils.WrapMessage(tmp)
+	message := utils.WrapMessage(tmp)
+
+	if ThisMember.Id == OurGroup.SequencerID && message.SenderID != ThisMember.Id {
+		SequencerReceive(message)
+		return
+	}
+
+	ThisMember.Pending = append(ThisMember.Pending, message)
+
+	//TODO: fix it later
+
+	// While there are pending messages to be received
+	for i := 0; i < len(ThisMember.Pending); i++ {
+		if ThisMember.Pending[i].SeqNum == ThisMember.NextDeliver {
+			currMsg := ThisMember.Pending[i]
+
+			messages = append(messages, currMsg)
+			ThisMember.NextDeliver++
+			ThisMember.LClocks[ThisMember.Id]++
+
+			// Updating Logical clocks on receive
+			ThisMember.LClocks = utils.UpdateLClocks(ThisMember.LClocks, currMsg.LClocks)
+		}
+	}
+
+	return messages
 }
 
-// bMulticast sends a message to the whole group
-func (m Member) bMulticast(message Message) {
+//
+func SequencerReceive(message Message) {
+	message.SeqNum = ThisMember.SeqNum
+	BMulticast(message)
+	ThisMember.SeqNum++
+
+}
+
+// Broadcast Sends a message to the sequencer to be broadcasted
+func Broadcast(message Message) {
+	finalAddr := string(OurGroup.BasePort + OurGroup.SequencerID)
+	tcpAddr, err := net.ResolveTCPAddr(ConnType, finalAddr)
+	utils.CheckErr(err)
+
+	conn, err := net.DialTCP(ConnType, nil, tcpAddr)
+	utils.CheckErr(err)
+	defer utils.CheckErr(conn.Close())
+
+	utils.CheckErr(conn.SetDeadline(time.Now().Add(time.Minute)))
+
+	_, err = conn.Write(utils.UnwrapMessage(message))
+	utils.CheckErr(err)
+	ThisMember.LClocks[ThisMember.Id]++
+}
+
+// BMulticast sends a message to the whole group
+func BMulticast(message Message) {
 	for i := 0; i < OurGroup.NMembers; i++ {
-		Send(OurGroup.MembersIDs[i], utils.UnwrapMessage(message))
+		if ThisMember.Id != OurGroup.MembersIDs[i] {
+			Send(OurGroup.MembersIDs[i], utils.UnwrapMessage(message))
+		}
 	}
 }
 
@@ -120,7 +185,7 @@ func BDeliver(m Message) {
 	if !ThisMember.MReceived[m.ID] {
 		ThisMember.MReceived[m.ID] = true
 		if m.SenderID != ThisMember.Id {
-			ThisMember.bMulticast(m)
+			Broadcast(m)
 		}
 	}
 }
